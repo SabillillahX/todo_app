@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lab/core/data/database.dart';
 import 'package:flutter_lab/core/utils/dialog_box.dart';
 import 'package:flutter_lab/core/utils/todo_tile.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -10,20 +12,34 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+
+  // reference to the Hive box
+  final _myBox = Hive.box('todoBox');
+  TodoDatabase db = TodoDatabase();
+
+  // Initialize the database
+  @override
+  void initState() {
+    // if this is 1st time opening the app, create initial data
+    if (_myBox.get('todoList') == null) {
+      db.createInitialData();
+    }  else {
+      db.loadData(); // Load existing data
+    }
+
+
+    super.initState(); // Load data from the database
+  }
+
   // Text controller for the dialog input
   final _controller = TextEditingController();
 
-  // Daftar tugas
-  List toDoList = [
-    ['Belajar Flutter', false],
-    ['Membuat Aplikasi Todo', false],
-  ];
-
   // Checkbox untuk mengubah status tugas
-  void CheckboxChanged(bool? value, int index) {
+  void checkboxChanged(bool? value, int index) {
     setState(() {
-      toDoList[index][1] = !toDoList[index][1]; // Update status tugas
+      db.toDoList[index][1] = !db.toDoList[index][1]; // Update status tugas
     });
+    db.updateDatabase(); // Update the database
   }
 
   // Create a new task
@@ -43,17 +59,27 @@ class _HomePageState extends State<HomePage> {
   // Save the new task
   void saveNewTask() {
     setState(() {
-      toDoList.add([_controller.text, false]);
+      db.toDoList.add([_controller.text, false]);
       _controller.clear(); 
     });
     Navigator.of(context).pop();
+    db.updateDatabase(); // Update the database with the new task
+  }
+
+  // Delete a task
+  void deleteTask(int index) {
+    setState(() {
+      db.toDoList.removeAt(index); // Remove the task at the specified index
+    });
+    db.updateDatabase(); // Update the database after deletion
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Todo App', style: TextStyle(color: Colors.black)),
+        title: const Text('Waydo', style: TextStyle(color: Colors.black)),
+        
         centerTitle: true,
       ),
 
@@ -66,14 +92,15 @@ class _HomePageState extends State<HomePage> {
       ),
 
       body: ListView.builder(
-        itemCount: toDoList.length,
+        itemCount: db.toDoList.length,
         itemBuilder: (context, index) {
           return TodoTile(
-            taskName: toDoList[index][0],
-            taskCompleted: toDoList[index][1],
+            taskName: db.toDoList[index][0],
+            taskCompleted: db.toDoList[index][1],
             onChanged: (value) {
-              CheckboxChanged(value, index);
+              checkboxChanged(value, index);
             },
+            deleteFunction: (context) => deleteTask(index),
           );
         },
       ),
